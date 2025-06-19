@@ -1,0 +1,126 @@
+# 多UAV-USV协同巡检系统默认配置
+# 所有配置参数的中央管理
+
+# 系统基础配置
+system:
+  name: "多UAV-USV协同巡检系统"
+  version: "0.1.0"
+  random_seed: 42
+  log_level: "INFO"
+  
+# 智能体配置
+agents:
+  uav:
+    count: 3  # UAV数量
+    max_speed: 15.0  # m/s
+    battery_capacity: 300.0  # Wh
+    base_power: 50.0  # W
+    task_power: 20.0  # W
+    cruise_speed_ratio: 0.7  # 经济巡航速度比例
+  
+  usv:
+    count: 1  # USV数量
+    max_speed: 8.0  # m/s
+    battery_capacity: 1000.0  # Wh
+    base_power: 100.0  # W
+    task_power: 30.0  # W
+    cruise_speed_ratio: 0.8
+
+# 环境配置
+environment:
+  map_width: 1024  # 地图宽度（像素）
+  map_height: 1024  # 地图高度（像素）
+  real_scale: 1000.0  # 真实尺度（米）
+  
+# 任务配置
+tasks:
+  max_tasks: 50  # 最大任务数
+  priority_range: [0.5, 3.0]  # 优先级范围
+  duration_range: [30.0, 300.0]  # 任务持续时间范围（秒）
+  energy_range: [5.0, 50.0]  # 能量需求范围（Wh）
+  generation_rate: 0.1  # 动态任务生成率（tasks/second）
+
+# HCA-A*路径规划器配置
+planner:
+  grid_resolution: 20.0  # 网格分辨率（米）
+  time_weight: 1.0  # 时间权重
+  energy_weight: 1.0  # 能量权重
+  safety_margin: 1.2  # 安全系数
+  max_iterations: 10000  # 最大搜索迭代次数
+
+# 2-opt优化器配置
+optimizer:
+  max_iterations: 1000  # 最大优化迭代次数
+  improvement_threshold: 0.01  # 改进阈值（1%）
+  time_weight: 1.0  # 时间权重
+  energy_weight: 1.0  # 能量权重
+  random_seed: 42
+
+# 强化学习调度器配置
+scheduler:
+  # 网络结构
+  state_dim: 64  # 状态维度
+  action_dim: 100  # 动作维度
+  hidden_dims: [256, 256, 128]  # 隐藏层维度
+  
+  # 训练参数
+  learning_rate: 1e-4  # 学习率
+  gamma: 0.99  # 折扣因子
+  epsilon: 0.1  # 探索概率
+  epsilon_min: 0.01  # 最小探索概率
+  epsilon_decay: 0.995  # 探索衰减率
+  
+  # 经验回放
+  buffer_size: 10000  # 回放缓冲区大小
+  batch_size: 64  # 批次大小
+  target_update_freq: 100  # 目标网络更新频率
+  
+  # 训练设置
+  max_episodes: 1000  # 最大训练回合数
+  max_steps_per_episode: 200  # 每回合最大步数
+  eval_freq: 50  # 评估频率
+
+# 仿真配置
+simulation:
+  time_step: 1.0  # 仿真时间步长（秒）
+  max_simulation_time: 3600.0  # 最大仿真时间（秒）
+  visualization: true  # 是否可视化
+  save_trajectory: true  # 是否保存轨迹
+  
+# 评估指标配置
+metrics:
+  # 性能指标
+  task_completion_rate: true  # 任务完成率
+  average_completion_time: true  # 平均完成时间
+  energy_efficiency: true  # 能源效率
+  path_optimality: true  # 路径最优性
+  
+  # 系统指标
+  load_balance: true  # 负载均衡
+  response_time: true  # 响应时间
+  throughput: true  # 吞吐量
+  
+  # 稳定性指标
+  success_rate: true  # 成功率
+  failure_recovery: true  # 故障恢复
+
+# 输出配置
+output:
+  results_dir: "results"  # 结果输出目录
+  models_dir: "models"  # 模型保存目录
+  logs_dir: "logs"  # 日志目录
+  plots_dir: "plots"  # 图表目录
+  save_frequency: 100  # 保存频率（训练步数）
+  
+# 硬件配置
+hardware:
+  use_gpu: true  # 是否使用GPU
+  gpu_memory_fraction: 0.8  # GPU内存使用比例
+  num_workers: 4  # 并行工作进程数
+  
+# 调试配置
+debug:
+  verbose: false  # 详细输出
+  profile_performance: false  # 性能分析
+  save_intermediate: false  # 保存中间结果
+  check_gradients: false  # 梯度检查

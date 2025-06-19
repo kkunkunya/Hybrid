@@ -1,0 +1,42 @@
+# GPU版本依赖文件
+# 用于CUDA 11.8环境
+
+# 核心依赖 - 严格版本控制
+numpy==1.26.4  # 必须是1.x版本
+scipy>=1.10.0
+
+# PyTorch GPU版本
+--index-url https://download.pytorch.org/whl/cu118
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+
+# 强化学习
+gymnasium>=0.29.0
+
+# 计算机视觉
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# 数据处理和可视化
+matplotlib>=3.7.0
+pandas>=2.0.0
+seaborn>=0.12.0
+
+# 配置和工具
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+click>=8.1.0
+loguru>=0.7.0
+
+# 地理空间（可选）
+# geopandas>=0.14.0
+# shapely>=2.0.0
+
+# 开发工具（可选）
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.5.0

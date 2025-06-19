@@ -1,0 +1,164 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid-uav-usv-inspection"
+version = "0.1.0"
+description = "多UAV-USV协同巡检系统 - 强化学习调度器与算法工具箱"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Project Team", email = "team@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "torch>=2.2.0",
+    "gymnasium>=0.29.0", 
+    "ray[rllib]>=2.8.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+    "geopandas>=0.14.0",
+    "shapely>=2.0.0",
+    "matplotlib>=3.7.0",
+    "plotly>=5.17.0",
+    "seaborn>=0.12.0",
+    "pandas>=2.0.0",
+    "pyyaml>=6.0.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.66.0",
+    "click>=8.1.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+profiling = [
+    "line_profiler",
+    "memory_profiler",
+]
+
+[project.scripts]
+hybrid-demo = "src.demo:main"
+hybrid-train = "src.train:main"
+hybrid-eval = "src.evaluate:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*.py" = ["F401", "F811"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*",
+    "ray.*",
+    "gymnasium.*",
+    "geopandas.*",
+    "shapely.*",
+    "plotly.*",
+    "seaborn.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow running",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\bProtocol\):",
+    "@(abc\.)?abstractmethod",
+]

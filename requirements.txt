@@ -1,0 +1,53 @@
+# 多UAV-USV协同巡检系统依赖包
+# Python 3.11+ required
+
+# 数值计算和科学计算 - 必须先安装兼容版本的NumPy
+numpy==1.26.4  # 固定版本，兼容PyTorch 2.2.2
+scipy>=1.10.0
+
+# 深度学习和强化学习框架
+# 安装CUDA 11.8版本的PyTorch：
+# pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+gymnasium>=0.29.0
+# ray[rllib]>=2.8.0  # 可选，可能需要额外配置
+
+# 计算机视觉和图像处理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# 地理空间数据处理
+geopandas>=0.14.0
+shapely>=2.0.0
+
+# 可视化
+matplotlib>=3.7.0
+plotly>=5.17.0
+seaborn>=0.12.0
+
+# 数据处理
+pandas>=2.0.0
+
+# 配置管理
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+
+# 测试框架
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+
+# 代码质量工具
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.5.0
+
+# 性能分析
+line_profiler>=4.1.1 ; python_version < "3.12"
+
+# 其他工具
+tqdm>=4.66.0
+click>=8.1.0
+loguru>=0.7.0
