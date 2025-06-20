@@ -22,6 +22,7 @@ Pillow>=10.0.0
 matplotlib>=3.7.0
 pandas>=2.0.0
 seaborn>=0.12.0
+pygame>=2.5.0  # 动态游戏引擎可视化
 
 # 配置和工具
 pyyaml>=6.0.0
