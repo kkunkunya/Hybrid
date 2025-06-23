@@ -80,6 +80,78 @@ scheduler:
   max_steps_per_episode: 200  # 每回合最大步数
   eval_freq: 50  # 评估频率
 
+# 能源感知任务分配器配置
+energy_aware_allocator:
+  # 成本函数权重
+  cost_weights:
+    distance: 0.3    # 距离权重
+    energy: 0.4      # 能耗权重  
+    time: 0.2        # 时间权重
+    risk: 0.1        # 风险权重
+  
+  # 安全参数
+  safety_margin: 0.25          # 25%安全余量
+  max_tasks_per_uav: 5         # 每个UAV最大任务数
+  energy_threshold: 0.15       # 15%电量阈值
+  min_energy_reserve: 0.1      # 10%最小预留电量
+  
+  # 自适应权重调整
+  adaptive_weights:
+    enable: true               # 启用自适应权重
+    adjustment_factor: 0.1     # 调整因子
+    load_threshold: 0.8        # 高负载阈值
+    energy_crisis_threshold: 0.2  # 能源危机阈值
+
+# USV后勤调度器配置  
+usv_logistics:
+  # 支援效益权重
+  support_benefit_weights:
+    task_value: 0.4      # 任务价值权重
+    energy_cost: 0.3     # 能源成本权重
+    time_cost: 0.2       # 时间成本权重
+    distance_cost: 0.1   # 距离成本权重
+  
+  # 支援参数
+  min_reserve_energy_ratio: 0.3    # 30%预留电量比例
+  max_support_distance: 5000       # 5km最大支援距离
+  charging_transfer_efficiency: 0.85  # 85%充电传输效率
+  support_response_time: 300       # 5分钟支援响应时间
+  
+  # 巡逻参数
+  patrol_enabled: true             # 启用巡逻功能
+  patrol_radius: 300               # 300像素巡逻半径
+  patrol_waypoint_count: 4         # 4个巡逻路径点
+
+# 充电决策器配置
+charging_decision:
+  # 决策因子权重
+  decision_factors:
+    distance: 0.3        # 距离因子权重
+    queue_time: 0.25     # 排队时间权重
+    availability: 0.25   # 可用性权重
+    urgency: 0.2         # 紧急度权重
+  
+  # 预测参数
+  queue_prediction_window: 900     # 15分钟预测窗口
+  emergency_threshold: 0.1         # 10%紧急电量阈值
+  charging_station_capacity: 2     # 充电桩容量
+  usv_charging_rate: 50           # USV充电功率(W)
+
+# 动态重调度器配置
+dynamic_reallocator:
+  # 触发阈值
+  trigger_thresholds:
+    critical_energy: 0.15           # 15%临界电量
+    performance_degradation: 0.2    # 20%性能下降
+    load_imbalance: 0.3            # 30%负载不均衡
+    task_failure_rate: 0.1         # 10%任务失败率
+  
+  # 重调度参数
+  reallocation_interval: 900       # 15分钟周期性检查
+  smooth_transition_steps: 3       # 3步平滑过渡
+  max_reallocation_frequency: 4    # 每小时最大重调度次数
+  local_adjustment_threshold: 0.3  # 30%智能体影响阈值
+
 # 仿真配置
 simulation:
   time_step: 1.0  # 仿真时间步长（秒）

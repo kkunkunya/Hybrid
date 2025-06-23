@@ -47,6 +47,28 @@ class FinalEnhancedAgent:
         
         # 线程安全锁
         self.lock = threading.Lock()
+    
+    @property
+    def energy(self):
+        """兼容性属性：返回绝对能量值"""
+        if self.agent_type.upper() == 'UAV':
+            return (self.battery_level / 100.0) * 300.0  # UAV最大300Wh
+        else:  # USV
+            return (self.battery_level / 100.0) * 1000.0  # USV最大1000Wh
+    
+    @property
+    def max_energy(self):
+        """兼容性属性：返回最大能量值"""
+        if self.agent_type.upper() == 'UAV':
+            return 300.0  # UAV最大300Wh
+        else:  # USV
+            return 1000.0  # USV最大1000Wh
+    
+    @energy.setter
+    def energy(self, value):
+        """兼容性属性：设置绝对能量值"""
+        max_energy = self.max_energy
+        self.battery_level = min(100.0, max(0.0, (value / max_energy) * 100.0))
         
     def _get_agent_color(self) -> Tuple[int, int, int]:
         """获取智能体颜色"""
@@ -66,17 +88,45 @@ class FinalEnhancedAgent:
                all_agents: Dict[str, 'FinalEnhancedAgent'] = None):
         """更新智能体状态 - 线程安全版"""
         with self.lock:
+            # 调试：记录状态变化前的状态
+            old_status = self.status
+            old_battery = self.battery_level
+            old_position = self.position.copy()
             # 电量管理
             if self.status == "moving":
                 self.battery_level -= 0.04
             elif self.status == "inspecting":
                 self.battery_level -= 0.1
             elif self.status == "charging" and self.battery_level < self.max_battery:
-                self.battery_level = min(self.max_battery, self.battery_level + 0.8)
+                # 只有在充电站或USV支援时才能充电
+                if hasattr(self, '_at_charging_station') and self._at_charging_station:
+                    self.battery_level = min(self.max_battery, self.battery_level + 0.05)  # 充电站充电速度
+                elif hasattr(self, '_receiving_usv_support') and self._receiving_usv_support:
+                    self.battery_level = min(self.max_battery, self.battery_level + 0.08)  # USV支援充电速度
+                # 否则不充电（避免魔法充电）
             elif self.status == "supporting":  # USV支援状态
                 self.battery_level -= 0.02  # 支援时消耗较少电量
+            elif self.status == "patrolling":  # USV巡逻状态
+                self.battery_level -= 0.01  # 巡逻时消耗更少电量
             
             self.battery_level = max(0, self.battery_level)
+            
+            # 调试：检测状态变化并输出
+            status_changed = old_status != self.status
+            battery_changed = abs(old_battery - self.battery_level) > 0.01
+            position_changed = (abs(old_position[0] - self.position[0]) > 1 or 
+                              abs(old_position[1] - self.position[1]) > 1)
+            
+            if status_changed or battery_changed or position_changed:
+                change_info = []
+                if status_changed:
+                    change_info.append(f"状态:{old_status}→{self.status}")
+                if battery_changed:
+                    change_info.append(f"电量:{old_battery:.1f}%→{self.battery_level:.1f}%")
+                if position_changed:
+                    change_info.append(f"位置:{old_position}→{self.position}")
+                
+                print(f"🔍 {self.agent_id} 状态变化: {', '.join(change_info)}")
             
             # 根据类型执行不同逻辑
             if self.is_support_vehicle:
@@ -94,11 +144,41 @@ class FinalEnhancedAgent:
                     self._handle_returning_state(charging_stations)
                 elif self.status == "charging":
                     self._handle_charging_state()
+                elif self.status == "waiting_support":
+                    # UAV等待USV支援时悬停，缓慢消耗电量
+                    self.battery_level -= 0.02  # 悬停时消耗较少电量
     
     def _handle_usv_logic(self, all_agents: Dict[str, 'FinalEnhancedAgent'], 
                          charging_stations: List[ChargingStation]):
         """USV专用逻辑 - 作为UAV的后勤支援"""
         if not all_agents:
+            return
+        
+        # 如果USV有目标位置（支援或巡逻），移动到目标位置
+        if self.target_position:
+            self._handle_moving_state()
+            return
+        
+        # 如果USV正在巡逻，继续巡逻逻辑
+        if self.status == "patrolling":
+            # 巡逻状态由调度器控制，这里只需要移动
+            if self.target_position:
+                # 检查是否到达巡逻点
+                dx = self.target_position[0] - self.position[0]
+                dy = self.target_position[1] - self.position[1]
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                if distance > 10:
+                    # 继续移动到巡逻点
+                    self._handle_moving_state()
+                else:
+                    # 到达巡逻点，寻找下一个巡逻点
+                    print(f"🚢 {self.agent_id} 到达巡逻点 {self.target_position}")
+                    self.target_position = None
+                    # 这里可以设置下一个巡逻点，或者等待调度器分配
+            else:
+                # 没有目标位置，保持当前状态或寻找新的巡逻点
+                print(f"🚢 {self.agent_id} 巡逻中但无目标位置")
             return
         
         # 找出需要支援的UAV（电量低且距离充电桩远）
@@ -135,16 +215,32 @@ class FinalEnhancedAgent:
                 self.status = "idle"
                 self.supported_uavs = []
             
-            # 在中心位置待命
+            # USV在空闲时智能选择待命位置
             if self.status == "idle":
-                center_x, center_y = 512, 512  # 场景中心
-                dx = center_x - self.position[0]
-                dy = center_y - self.position[1]
-                distance = math.sqrt(dx*dx + dy*dy)
-                
-                if distance > 100:  # 如果离中心较远
-                    self.target_position = [center_x, center_y]
-                    self.status = "moving"
+                # 计算最优待命位置：在所有UAV的重心位置附近
+                if all_agents:
+                    uav_positions = []
+                    for agent_id, agent in all_agents.items():
+                        if agent.agent_type == "UAV":
+                            uav_positions.append(agent.position)
+                    
+                    if uav_positions:
+                        # 计算UAV群的重心
+                        avg_x = sum(pos[0] for pos in uav_positions) / len(uav_positions)
+                        avg_y = sum(pos[1] for pos in uav_positions) / len(uav_positions)
+                        center_of_mass = [avg_x, avg_y]
+                        
+                        # 如果USV离UAV群重心较远，缓慢移动过去
+                        dx = center_of_mass[0] - self.position[0]
+                        dy = center_of_mass[1] - self.position[1]
+                        distance = math.sqrt(dx*dx + dy*dy)
+                        
+                        # 只有当距离超过200像素时才移动，避免频繁移动
+                        if distance > 200:
+                            self.target_position = center_of_mass
+                            self.status = "moving"
+                            print(f"🚢 {self.agent_id} 移动到UAV群附近待命")
+                # 如果没有UAV或距离合适，保持当前位置
         
         # USV也需要充电
         if self.battery_level < 30 and self.status != "charging":
@@ -165,6 +261,7 @@ class FinalEnhancedAgent:
             task_id = self.assigned_tasks[self.current_task_index]
             if task_id in tasks:
                 task = tasks[task_id]
+                print(f"🔍 {self.agent_id} 检查任务 {task_id}, 状态: {task['status']}")
                 if task['status'] == 'assigned':
                     self.target_position = task['position']
                     self.status = "moving"
@@ -172,6 +269,43 @@ class FinalEnhancedAgent:
                     # 开始新任务时记录当前位置
                     self.trajectory.append(tuple(self.position))
                     print(f"🛩️ {self.agent_id} 开始前往任务点 {task_id} at {self.target_position}")
+                elif task['status'] == 'in_progress':
+                    # 任务已经在进行中，检查是否有目标位置
+                    if not self.target_position:
+                        self.target_position = task['position']
+                        self.status = "moving"
+                        print(f"🔄 {self.agent_id} 恢复前往任务点 {task_id} at {self.target_position}")
+                elif task['status'] == 'completed':
+                    # 任务已完成，移动到下一个任务
+                    self.current_task_index += 1
+                    print(f"⏭️ {self.agent_id} 任务 {task_id} 已完成，移动到下一个任务")
+                else:
+                    print(f"⚠️ {self.agent_id} 任务 {task_id} 状态: {task['status']}")
+            else:
+                print(f"❌ {self.agent_id} 任务 {task_id} 不存在于任务字典中")
+        elif self.assigned_tasks:
+            completed_count = sum(1 for tid in self.assigned_tasks if tid in tasks and tasks[tid]['status'] == 'completed')
+            print(f"📋 {self.agent_id} 已完成 {completed_count}/{len(self.assigned_tasks)} 个任务 (当前索引:{self.current_task_index})")
+            
+            # 检查是否还有未完成的任务
+            has_incomplete_tasks = False
+            for i, task_id in enumerate(self.assigned_tasks):
+                if task_id in tasks and tasks[task_id]['status'] != 'completed':
+                    print(f"  ⚠️ 任务 {task_id} 状态: {tasks[task_id]['status']} (索引:{i})")
+                    has_incomplete_tasks = True
+                    
+                    # 如果当前任务索引已经超出范围，重置到未完成的任务
+                    if self.current_task_index >= len(self.assigned_tasks):
+                        self.current_task_index = i
+                        print(f"  🔄 重置任务索引到 {i}")
+                        break
+            
+            # 如果所有分配的任务都完成了，但还有待分配的任务
+            if not has_incomplete_tasks and completed_count == len(self.assigned_tasks):
+                pending_count = sum(1 for task in tasks.values() if task['status'] == 'pending')
+                if pending_count > 0:
+                    print(f"  💡 {self.agent_id} 完成所有任务，但还有 {pending_count} 个待分配任务")
+                    # 这里可以触发重新分配
         elif self.battery_level < 30:
             self.status = "returning"
     
@@ -184,6 +318,7 @@ class FinalEnhancedAgent:
             
             if distance < 10:
                 # 到达目标点时确保精确位置
+                print(f"🎯 {self.agent_id} 到达目标点 {self.target_position} (距离:{distance:.1f})")
                 self.position = list(self.target_position)
                 # 确保到达点被记录到轨迹中
                 self.trajectory.append(tuple(self.position))
@@ -233,9 +368,14 @@ class FinalEnhancedAgent:
             if self.assigned_tasks and self.current_task_index < len(self.assigned_tasks):
                 task_id = self.assigned_tasks[self.current_task_index]
                 if task_id in tasks:
+                    print(f"✅ {self.agent_id} 完成任务 {task_id} (巡检时间:{self.inspection_timer})")
                     tasks[task_id]['status'] = 'completed'
+                    print(f"📋 {self.agent_id} 任务状态更新: {task_id} → completed")
+                else:
+                    print(f"⚠️ {self.agent_id} 任务 {task_id} 不存在于任务列表中")
                 
                 self.current_task_index += 1
+                print(f"📋 {self.agent_id} 下一个任务索引: {self.current_task_index}/{len(self.assigned_tasks)}")
             
             # 巡检完成时，确保当前位置被记录到轨迹中
             self.trajectory.append(tuple(self.position))
@@ -418,13 +558,14 @@ class FinalEnhancedPygameVisualizer:
                 station = ChargingStation(i, pos, "shore")
                 self.charging_stations.append(station)
     
-    def add_agent(self, agent_id: str, agent_type: str, start_pos: Tuple[int, int]):
+    def add_agent(self, agent_id: str, agent_type: str, start_pos: Tuple[int, int]) -> FinalEnhancedAgent:
         """添加智能体"""
         agent = FinalEnhancedAgent(agent_id, agent_type, start_pos)
         self.agents[agent_id] = agent
         
         role = "Support Vehicle" if agent_type == "USV" else "Inspection UAV"
         print(f"✅ Added {role}: {agent_id} at position {start_pos}")
+        return agent
     
     def add_task(self, task_id: int, position: Tuple[int, int], task_type: str = "inspection"):
         """添加任务（仅UAV执行）"""
@@ -443,6 +584,19 @@ class FinalEnhancedPygameVisualizer:
     def assign_tasks(self, assignments: Dict[str, List[int]]):
         """分配任务（仅分配给UAV）"""
         with self.shared_state_lock:
+            # 重置所有UAV的任务
+            for agent in self.agents.values():
+                if agent.agent_type == "UAV":
+                    agent.assigned_tasks = []
+                    agent.current_task_index = 0
+            
+            # 重置所有任务状态
+            for task in self.tasks.values():
+                if task['status'] != 'completed':
+                    task['status'] = 'pending'
+                    task['assigned_agent'] = None
+            
+            # 分配新任务
             for agent_id, task_ids in assignments.items():
                 if agent_id in self.agents:
                     agent = self.agents[agent_id]
@@ -450,11 +604,12 @@ class FinalEnhancedPygameVisualizer:
                     # 只给UAV分配任务，USV不执行巡检
                     if agent.agent_type == "UAV" and task_ids:
                         agent.assigned_tasks = task_ids
+                        agent.current_task_index = 0  # 重置任务索引
                         for task_id in task_ids:
                             if task_id in self.tasks:
                                 self.tasks[task_id]['assigned_agent'] = agent_id
                                 self.tasks[task_id]['status'] = 'assigned'
-                        print(f"✅ UAV {agent_id} assigned inspection tasks: {task_ids}")
+                        print(f"✅ UAV {agent_id} 分配 {len(task_ids)} 个巡检任务: {task_ids[:5]}{'...' if len(task_ids) > 5 else ''}")
                     elif agent.agent_type == "USV":
                         print(f"ℹ️ USV {agent_id} assigned as support vehicle (no inspection tasks)")
     
@@ -747,7 +902,8 @@ class FinalEnhancedPygameVisualizer:
                     'inspecting': (255, 255, 0),
                     'returning': (255, 182, 193),
                     'charging': (144, 238, 144),
-                    'supporting': (135, 206, 250)  # 天蓝色表示支援状态
+                    'supporting': (135, 206, 250),  # 天蓝色表示支援状态
+                    'waiting_support': (255, 0, 255)  # 紫色表示等待支援
                 }.get(agent_state['status'], (255, 255, 255))
                 
                 status_text = {
@@ -756,7 +912,8 @@ class FinalEnhancedPygameVisualizer:
                     'inspecting': 'INSPECT',
                     'returning': 'RETURN',
                     'charging': 'CHARGE',
-                    'supporting': 'SUPPORT'
+                    'supporting': 'SUPPORT',
+                    'waiting_support': 'WAIT_SUP'
                 }.get(agent_state['status'], 'UNKNOWN')
                 
                 # 显示角色信息

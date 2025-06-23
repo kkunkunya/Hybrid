@@ -300,6 +300,11 @@ class EnhancedSceneParser:
         if len(safe_positions) < num_positions:
             strategic_positions = self._get_scene_strategic_positions()
             
+            # 只在第一次调用时输出战略位置信息
+            if not hasattr(self, '_strategic_positions_shown'):
+                print(f"🎯 使用战略位置补充剩余 {num_positions - len(safe_positions)} 个位置")
+                self._strategic_positions_shown = True
+            
             for pos in strategic_positions:
                 if len(safe_positions) >= num_positions:
                     break
@@ -307,7 +312,6 @@ class EnhancedSceneParser:
                 if (self._is_position_safe(pos, min_distance=30) and 
                     self._is_far_from_existing(pos, safe_positions, min_distance=80)):
                     safe_positions.append(pos)
-                    print(f"  战略位置: {pos}")
         
         # 如果还不够，随机生成补充
         max_attempts = 500
@@ -325,7 +329,14 @@ class EnhancedSceneParser:
                 self._is_far_from_existing(pos, safe_positions, min_distance=60)):
                 safe_positions.append(pos)
         
-        print(f"✅ 生成 {len(safe_positions)} 个安全位置（充电桩附近优先）")
+        # 只在第一次调用时输出详细信息，避免重复输出
+        if not hasattr(self, '_positions_generated'):
+            print(f"✅ 生成 {len(safe_positions)} 个安全位置（充电桩附近优先）")
+            for i, pos in enumerate(safe_positions):
+                if i < 5:  # 只显示前5个位置
+                    print(f"  位置{i+1}: {pos}")
+            self._positions_generated = True
+        
         return safe_positions[:num_positions]
     
     def _get_scene_strategic_positions(self) -> List[Tuple[int, int]]:
